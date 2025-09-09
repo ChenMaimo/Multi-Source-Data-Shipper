@@ -1,0 +1,33 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.dylib
+.pytest_cache/
+
+# Virtual env
+.venv/
+venv/
+ENV/
+env/
+
+# Editors/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Dist/build
+build/
+dist/
+*.egg-info/
+
+# Env & secrets
+.env
+.env.*.local
+
+# Coverage/mypy
+.coverage
+htmlcov/
+.mypy_cache/

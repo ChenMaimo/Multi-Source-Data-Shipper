@@ -1,0 +1,6 @@
+requests
+python-dateutil
+pydantic
+tenacity
+pytest
+logzio-python-handler
