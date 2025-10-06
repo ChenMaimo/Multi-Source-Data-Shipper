@@ -43,47 +43,38 @@ class UnifiedLog(BaseModel):
 
     @classmethod
     def from_openweathermap(cls, raw:Dict[str,Any])->"UnifiedLog":
-        city = raw.get("name")
-        temp = (raw.get("main") or {}).get("temp")
-        desc = None
-        weather = raw.get("weather")
-        if isinstance(weather, list) and weather:
-            desc = (weather[0] or {}).get("description")
-        return {
-            "city": city,
-            "temperature_celsius": temp,
-            "description": desc,
-            "source_provider": "openweathermap",
-        }
+        weather = cls._first_or_none(raw.get("weather"))
+        desc = (weather or {}).get("description")
+        temp_val = (raw.get("main") or {}).get("temp")
+        temp_c = cls._coerce_float(temp_val)
+       
+        return cls(
+            city=raw.get("name"),
+            temperature_celsius=temp_c,
+            description=desc,
+            source_provider=Source.openweathermap,
+        )
     
     @classmethod
     def from_weatherapi(cls, raw:Dict[str,Any])->"UnifiedLog":
         loc = raw.get("location") or {}
         cur = raw.get("current") or {}
         cond = cur.get("condition") or {}
-        return {
-            "city": loc.get("name"),
-            "temperature_celsius": cur.get("temp_c"),
-            "description": cond.get("text"),
-            "source_provider": "weatherapi",
-        }
+        return cls(
+            city=loc.get("name"),
+            temperature_celsius=cls._coerce_float(cur.get("temp_c")),
+            description=cond.get("text"),
+            source_provider=Source.weatherapi,
+        )
 
     @classmethod
     def from_csv(cls, row:Dict[str,Any]) ->"UnifiedLog":
-        city =  row.get("city")
-        temp_val: Optional[float] = None
-        t = row.get("temperature")
-        if t is not None and t != "":
-            try:
-                temp_val = float(t)
-            except ValueError:
-                temp_val = None
-        return {
-            "city": city,
-            "temperature_celsius": temp_val,
-            "description": row.get("description"),
-            "source_provider": "file",
-        }
+        return cls(
+            city=row.get("city"),
+            temperature_celsius=cls._coerce_float(row.get("temperature")),
+            description=row.get("description"),
+            source_provider=Source.file,
+        )
     
     def to_dict(self)->Dict[str, Any]:
         return self.model_dump()
