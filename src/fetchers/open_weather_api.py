@@ -1,9 +1,9 @@
 import requests
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class OpenWeatherMapFetcher:
-    def __init__(self)->None:
+    def __init__(self, session:Optional[requests.Session]= None)->None:
         self.api_key = os.getenv("OPEN_WEATHER_API")
         if not self.api_key:
             raise RuntimeError("Missing Open Weather Api Key")

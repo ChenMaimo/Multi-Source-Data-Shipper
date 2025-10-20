@@ -10,17 +10,28 @@ from src import config
 from src.fetchers.open_weather_api import OpenWeatherMapFetcher
 from src.fetchers.weather_api import WeatherApiFetcher
 from src.fetchers.csv_fetcher import CsvFetcher
-from src.normalize.normelizer import UnifiedLog
+from src.normalize.normelizer import (UnifiedLog, OwmNormalizer, WeatherApiNormalizer, CsvNormalizer)
 from src.shipper.logzio_shipper import LogzioShipper
 
 log = logging.getLogger("main")
 
+def build_dependencies():
+    own = OpenWeatherMapFetcher()
+    wapi = WeatherApiFetcher()
+    csv_fetcher = CsvFetcher(config.CSV_FILE)
+
+    owm_norm = OwmNormalizer()
+    wapi_norm = WeatherApiNormalizer()
+    csv_norm = CsvNormalizer()
+
+    shipper = LogzioShipper()
+    return (own, owm_norm), (wapi, wapi_norm), (csv_fetcher, csv_norm), shipper
+
 def run_once(ship: bool = True) -> None:
     events = []
 
-    owm = OpenWeatherMapFetcher()
-    wapi = WeatherApiFetcher()
-    csv_fetcher = CsvFetcher(config.CSV_FILE)
+    (owm, owm_norm), (wapi, wapi_norm), (csv_fetcher, csv_norm), shipper = build_dependencies()
+
 
     log.info("Polling %d cities from OWM + WeatherAPI, and CSV=%s", len(config.CITIES), config.CSV_FILE)
 
@@ -28,8 +39,9 @@ def run_once(ship: bool = True) -> None:
         try:
             raw = owm.fetch_city(city)
             evt = UnifiedLog.from_openweathermap(raw)
-            events.append(evt)
-            log.info("OWM normalized", extra={"city": evt["city"], "temperature_celsius": evt["temperature_celsius"], "description": evt["description"]})
+            eve_to_ship = evt.model_dump()
+            events.append(eve_to_ship)
+            log.info("OWM normalized city=%s temp=%s desc=%s", evt.city, evt.temperature_celsius, evt.description)
         except Exception as e:
             log.exception("OWM fetch failed city=%s: %s", city, e)
 
@@ -37,21 +49,24 @@ def run_once(ship: bool = True) -> None:
         try:
             raw = wapi.fetch_city(city)
             evt = UnifiedLog.from_weatherapi(raw)
-            events.append(evt)
-            log.info("WAPI normalized", extra={"city": evt["city"], "temperature_celsius": evt["temperature_celsius"], "description": evt["description"]})
+            eve_to_ship = evt.model_dump()
+            events.append(eve_to_ship)
+            log.info("OWM normalized city=%s temp=%s desc=%s",
+                     evt.city, evt.temperature_celsius, evt.description)
         except Exception as e:
             log.exception("WAPI fetch failed city=%s: %s", city, e)
 
     try:
-        rows = csv_fetcher.fetch()
-        for row in rows:
-            events.append(UnifiedLog.from_csv(row))
-        log.info("CSV normalized rows=%d", len(rows))
+        count = 0
+        for row in csv_fetcher.fetch():
+            evt: UnifiedLog = csv_norm.normalize(row)
+            events.append(evt.model_dump())
+            count += 1
+        log.info("CSV normalized rows=%d", count)
     except Exception as e:
         log.exception("CSV fetch failed: %s", e)
 
     if ship and events:
-        shipper = LogzioShipper()
         log.info("Shipping %d events to Logz.io", len(events))
         shipper.ship(events)
         log.info("Sent %d events to Logz.io", len(events))
@@ -59,6 +74,7 @@ def run_once(ship: bool = True) -> None:
         log.info("Dry run only: %d events", len(events))
         for e in events:
             print(e)
+
 
 def run_forever() -> None:
     setup_logging()

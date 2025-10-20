@@ -1,6 +1,13 @@
 from typing import Dict, Any, Optional
 from enum import Enum
 from pydantic import field_validator, BaseModel
+from abc import ABC, abstractmethod
+
+class Normalizer(ABC):
+    @abstractmethod
+    def normalize(self, raw: Dict[str, Any]) -> "UnifiedLog":
+        ...
+
 
 class Source(str, Enum):
     openweathermap = "openweathermap"
@@ -79,3 +86,15 @@ class UnifiedLog(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()
+    
+class OwmNormalizer(Normalizer):
+    def normalize(self, raw):
+        return UnifiedLog.from_openweathermap(raw)
+    
+class WeatherApiNormalizer(Normalizer):
+    def normalize(self, raw):
+        return UnifiedLog.from_weatherapi(raw)
+
+class CsvNormalizer(Normalizer):
+    def normalize(self, raw):
+        return UnifiedLog.from_csv(raw)

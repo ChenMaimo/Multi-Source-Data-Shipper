@@ -1,9 +1,9 @@
 import os
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class WeatherApiFetcher:
-    def __init__(self) ->None:
+    def __init__(self, session:Optional[requests.Session] = None ) ->None:
         self.api_key = os.getenv("WEATHER_API_KEY")
         if not self.api_key:
             raise RuntimeError("Missing Weather Api Key")
